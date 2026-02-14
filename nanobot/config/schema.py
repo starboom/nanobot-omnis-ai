@@ -142,6 +142,13 @@ class QQConfig(BaseModel):
     allow_from: list[str] = Field(default_factory=list)  # Allowed user openids (empty = public access)
 
 
+class WebChatConfig(BaseModel):
+    """WebChat channel: browser-based chat via WebSocket."""
+    enabled: bool = False
+    host: str = "0.0.0.0"
+    port: int = 18800
+
+
 class ChannelsConfig(BaseModel):
     """Configuration for chat channels."""
     whatsapp: WhatsAppConfig = Field(default_factory=WhatsAppConfig)
@@ -153,6 +160,7 @@ class ChannelsConfig(BaseModel):
     email: EmailConfig = Field(default_factory=EmailConfig)
     slack: SlackConfig = Field(default_factory=SlackConfig)
     qq: QQConfig = Field(default_factory=QQConfig)
+    webchat: WebChatConfig = Field(default_factory=WebChatConfig)
 
 
 class AgentDefaults(BaseModel):
@@ -215,6 +223,14 @@ class ExecToolConfig(BaseModel):
     timeout: int = 60
 
 
+class EmployeeConfig(BaseModel):
+    """A digital employee bound to a skill and webchat port."""
+    name: str = ""
+    skill: str = ""
+    port: int = 0
+    enabled: bool = True
+
+
 class ToolsConfig(BaseModel):
     """Tools configuration."""
     web: WebToolsConfig = Field(default_factory=WebToolsConfig)
@@ -229,6 +245,7 @@ class Config(BaseSettings):
     providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
     gateway: GatewayConfig = Field(default_factory=GatewayConfig)
     tools: ToolsConfig = Field(default_factory=ToolsConfig)
+    employees: dict[str, EmployeeConfig] = Field(default_factory=dict)
     
     @property
     def workspace_path(self) -> Path:

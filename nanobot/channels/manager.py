@@ -136,6 +136,17 @@ class ChannelManager:
                 logger.info("QQ channel enabled")
             except ImportError as e:
                 logger.warning(f"QQ channel not available: {e}")
+
+        # WebChat channel (default instance)
+        if self.config.channels.webchat.enabled:
+            try:
+                from nanobot.channels.webchat import WebChatChannel
+                self.channels["webchat"] = WebChatChannel(
+                    self.config.channels.webchat, self.bus
+                )
+                logger.info(f"WebChat channel enabled on port {self.config.channels.webchat.port}")
+            except ImportError as e:
+                logger.warning(f"WebChat channel not available: {e}")
     
     async def _start_channel(self, name: str, channel: BaseChannel) -> None:
         """Start a channel and log any exceptions."""
@@ -210,6 +221,25 @@ class ChannelManager:
     def get_channel(self, name: str) -> BaseChannel | None:
         """Get a channel by name."""
         return self.channels.get(name)
+
+    async def add_channel(self, name: str, channel: BaseChannel) -> None:
+        """Register and start a new channel at runtime."""
+        if name in self.channels:
+            logger.warning(f"Channel {name} already exists, skipping")
+            return
+        self.channels[name] = channel
+        logger.info(f"Starting {name} channel...")
+        asyncio.create_task(self._start_channel(name, channel))
+
+    async def remove_channel(self, name: str) -> None:
+        """Stop and remove a channel at runtime."""
+        channel = self.channels.pop(name, None)
+        if channel:
+            try:
+                await channel.stop()
+                logger.info(f"Removed channel {name}")
+            except Exception as e:
+                logger.error(f"Error removing {name}: {e}")
     
     def get_status(self) -> dict[str, Any]:
         """Get status of all channels."""

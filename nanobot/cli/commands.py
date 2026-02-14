@@ -298,7 +298,7 @@ def gateway(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ):
     """Start the nanobot gateway."""
-    from nanobot.config.loader import load_config, get_data_dir
+    from nanobot.config.loader import load_config, get_data_dir, get_config_path
     from nanobot.bus.queue import MessageBus
     from nanobot.agent.loop import AgentLoop
     from nanobot.channels.manager import ChannelManager
@@ -306,6 +306,8 @@ def gateway(
     from nanobot.cron.service import CronService
     from nanobot.cron.types import CronJob
     from nanobot.heartbeat.service import HeartbeatService
+    from nanobot.employee.manager import EmployeeManager
+    from nanobot.employee.watcher import ConfigWatcher
     
     if verbose:
         import logging
@@ -370,28 +372,41 @@ def gateway(
     
     # Create channel manager
     channels = ChannelManager(config, bus)
-    
+
     if channels.enabled_channels:
         console.print(f"[green]✓[/green] Channels enabled: {', '.join(channels.enabled_channels)}")
     else:
         console.print("[yellow]Warning: No channels enabled[/yellow]")
-    
+
+    # Create employee manager
+    employee_manager = EmployeeManager(config, channels, bus, config.workspace_path)
+
+    # Create config watcher for hot-reload
+    config_watcher = ConfigWatcher(get_config_path(), employee_manager.reload)
+
     cron_status = cron.status()
     if cron_status["jobs"] > 0:
         console.print(f"[green]✓[/green] Cron: {cron_status['jobs']} scheduled jobs")
-    
+
     console.print(f"[green]✓[/green] Heartbeat: every 30m")
-    
+
     async def run():
         try:
+            loop = asyncio.get_running_loop()
             await cron.start()
             await heartbeat.start()
+            await employee_manager.start()
+            config_watcher.start(loop)
+            if config.employees:
+                console.print(f"[green]✓[/green] Employees: {len(config.employees)} registered")
             await asyncio.gather(
                 agent.run(),
                 channels.start_all(),
             )
         except KeyboardInterrupt:
             console.print("\nShutting down...")
+            config_watcher.stop()
+            await employee_manager.stop()
             heartbeat.stop()
             cron.stop()
             agent.stop()

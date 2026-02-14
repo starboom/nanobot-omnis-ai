@@ -197,12 +197,18 @@ class AgentLoop:
             cron_tool.set_context(msg.channel, msg.chat_id)
         
         # Build initial messages (use get_history for LLM-formatted messages)
+        skill_override = msg.metadata.get("skill") if msg.metadata else None
+        agent_id = msg.metadata.get("agent_id") if msg.metadata else None
+        knowledge_dir = (self.workspace / "agent" / agent_id / "knowledge") if agent_id else None
         messages = self.context.build_messages(
             history=session.get_history(),
             current_message=msg.content,
             media=msg.media if msg.media else None,
             channel=msg.channel,
             chat_id=msg.chat_id,
+            skill_override=skill_override,
+            knowledge_dir=knowledge_dir,
+            agent_id=agent_id,
         )
         
         # Agent loop

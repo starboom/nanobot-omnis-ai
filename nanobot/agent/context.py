@@ -25,40 +25,73 @@ class ContextBuilder:
         self.memory = MemoryStore(workspace)
         self.skills = SkillsLoader(workspace)
     
-    def build_system_prompt(self, skill_names: list[str] | None = None) -> str:
+    def build_system_prompt(self, skill_names: list[str] | None = None,
+                            skill_override: str | None = None,
+                            knowledge_dir: Path | None = None,
+                            agent_id: str | None = None) -> str:
         """
         Build the system prompt from bootstrap files, memory, and skills.
-        
+
         Args:
             skill_names: Optional list of skills to include.
-        
+            skill_override: If set, load only this skill (for agent-bound channels).
+            knowledge_dir: Optional path to employee knowledge directory.
+            agent_id: If set, enter employee isolation mode — only this
+                      employee's skill and knowledge are visible.
+
         Returns:
             Complete system prompt.
         """
+        # Employee isolation mode: strict boundary, no cross-contamination
+        if agent_id and skill_override:
+            return self._build_employee_prompt(
+                agent_id=agent_id,
+                skill_name=skill_override,
+                knowledge_dir=knowledge_dir,
+            )
+
+        # --- Normal (non-employee) mode below ---
         parts = []
-        
+
         # Core identity
         parts.append(self._get_identity())
-        
+
         # Bootstrap files
         bootstrap = self._load_bootstrap_files()
         if bootstrap:
             parts.append(bootstrap)
-        
+
         # Memory context
         memory = self.memory.get_memory_context()
         if memory:
             parts.append(f"# Memory\n\n{memory}")
-        
-        # Skills - progressive loading
-        # 1. Always-loaded skills: include full content
-        always_skills = self.skills.get_always_skills()
-        if always_skills:
-            always_content = self.skills.load_skills_for_context(always_skills)
-            if always_content:
-                parts.append(f"# Active Skills\n\n{always_content}")
-        
-        # 2. Available skills: only show summary (agent uses read_file to load)
+
+        # Skills - skill_override takes priority
+        if skill_override:
+            override_content = self.skills.load_skills_for_context([skill_override])
+            if override_content:
+                parts.append(f"# Active Skills\n\n{override_content}")
+        else:
+            # Always-loaded skills: include full content
+            always_skills = self.skills.get_always_skills()
+            if always_skills:
+                always_content = self.skills.load_skills_for_context(always_skills)
+                if always_content:
+                    parts.append(f"# Active Skills\n\n{always_content}")
+
+        # Knowledge base index (progressive loading)
+        if knowledge_dir and knowledge_dir.exists():
+            from nanobot.agent.knowledge import KnowledgeStore
+            kb = KnowledgeStore(knowledge_dir)
+            index = kb.build_index()
+            if index:
+                parts.append(
+                    "# Knowledge Base\n\n"
+                    "以下是你的业务知识库文件。需要时用 read_file 工具读取全文。\n\n"
+                    + index
+                )
+
+        # Available skills: only show summary (agent uses read_file to load)
         skills_summary = self.skills.build_skills_summary()
         if skills_summary:
             parts.append(f"""# Skills
@@ -67,7 +100,71 @@ The following skills extend your capabilities. To use a skill, read its SKILL.md
 Skills with available="false" need dependencies installed first - you can try installing them with apt/brew.
 
 {skills_summary}""")
-        
+
+        return "\n\n---\n\n".join(parts)
+
+    def _build_employee_prompt(self, agent_id: str, skill_name: str,
+                               knowledge_dir: Path | None = None) -> str:
+        """Build a strictly isolated system prompt for a digital employee.
+
+        In employee mode:
+        - NO generic nanobot identity
+        - NO shared bootstrap files (AGENTS.md, SOUL.md, etc.)
+        - NO shared memory
+        - NO other skills summary
+        - ONLY this employee's skill + knowledge base
+        """
+        from datetime import datetime
+        import time as _time
+
+        parts = []
+
+        now = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
+        tz = _time.strftime("%Z") or "UTC"
+        workspace_path = str(self.workspace.expanduser().resolve())
+        agent_dir = f"{workspace_path}/agent/{agent_id}"
+
+        # 1. Employee identity — loaded from SKILL.md
+        skill_content = self.skills.load_skills_for_context([skill_name])
+        if skill_content:
+            parts.append(skill_content)
+
+        # 2. Minimal runtime context
+        system = platform.system()
+        runtime = f"{'macOS' if system == 'Darwin' else system} {platform.machine()}, Python {platform.python_version()}"
+        parts.append(f"""## Runtime
+Current Time: {now} ({tz})
+System: {runtime}
+
+## Workspace
+- 工作目录: {agent_dir}
+- 知识库: {agent_dir}/knowledge/
+- 工作日志: {agent_dir}/log.md
+- 工作笔记: {agent_dir}/notes.md""")
+
+        # 3. Knowledge base index
+        if knowledge_dir and knowledge_dir.exists():
+            from nanobot.agent.knowledge import KnowledgeStore
+            kb = KnowledgeStore(knowledge_dir)
+            index = kb.build_index()
+            if index:
+                parts.append(
+                    "## Knowledge Base\n\n"
+                    "以下是你的业务知识库文件。需要时用 read_file 工具读取全文。\n\n"
+                    + index
+                )
+
+        # 4. Hard constraints — prevent cross-contamination
+        parts.append(f"""## 行为约束（严格遵守）
+
+- 你是数字员工 #{agent_id}，只能基于上述身份和技能回答问题
+- 你只能访问自己的工作目录 {agent_dir}/ 下的文件
+- 你不知道也不应提及其他员工、其他技能或系统级配置
+- 如果用户问到你职责范围之外的事情，礼貌说明这不在你的专业范围内
+- 重要工作记录写入 {agent_dir}/log.md
+- 重要笔记和洞察写入 {agent_dir}/notes.md
+- 回复时直接输出文本，不要调用 message 工具""")
+
         return "\n\n---\n\n".join(parts)
     
     def _get_identity(self) -> str:
@@ -129,6 +226,9 @@ To recall past events, grep {workspace_path}/memory/HISTORY.md"""
         media: list[str] | None = None,
         channel: str | None = None,
         chat_id: str | None = None,
+        skill_override: str | None = None,
+        knowledge_dir: Path | None = None,
+        agent_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Build the complete message list for an LLM call.
@@ -140,6 +240,9 @@ To recall past events, grep {workspace_path}/memory/HISTORY.md"""
             media: Optional list of local file paths for images/media.
             channel: Current channel (telegram, feishu, etc.).
             chat_id: Current chat/user ID.
+            skill_override: If set, load only this skill.
+            knowledge_dir: Optional path to employee knowledge directory.
+            agent_id: If set, enter employee isolation mode.
 
         Returns:
             List of messages including system prompt.
@@ -147,7 +250,10 @@ To recall past events, grep {workspace_path}/memory/HISTORY.md"""
         messages = []
 
         # System prompt
-        system_prompt = self.build_system_prompt(skill_names)
+        system_prompt = self.build_system_prompt(
+            skill_names, skill_override=skill_override,
+            knowledge_dir=knowledge_dir, agent_id=agent_id,
+        )
         if channel and chat_id:
             system_prompt += f"\n\n## Current Session\nChannel: {channel}\nChat ID: {chat_id}"
         messages.append({"role": "system", "content": system_prompt})
