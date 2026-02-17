@@ -58,26 +58,38 @@ class SkillsLoader:
     
     def load_skill(self, name: str) -> str | None:
         """
-        Load a skill by name.
-        
+        Load a skill by name — includes ALL .md files in the skill directory.
+
+        SKILL.md is loaded first (primary), then other .md files in sorted order.
+
         Args:
             name: Skill name (directory name).
-        
+
         Returns:
-            Skill content or None if not found.
+            Combined skill content or None if not found.
         """
-        # Check workspace first
-        workspace_skill = self.workspace_skills / name / "SKILL.md"
-        if workspace_skill.exists():
-            return workspace_skill.read_text(encoding="utf-8")
-        
-        # Check built-in
-        if self.builtin_skills:
-            builtin_skill = self.builtin_skills / name / "SKILL.md"
-            if builtin_skill.exists():
-                return builtin_skill.read_text(encoding="utf-8")
-        
-        return None
+        # Check workspace first, then built-in
+        skill_dir = self.workspace_skills / name
+        if not skill_dir.is_dir():
+            if self.builtin_skills:
+                skill_dir = self.builtin_skills / name
+                if not skill_dir.is_dir():
+                    return None
+            else:
+                return None
+
+        primary = skill_dir / "SKILL.md"
+        if not primary.exists():
+            return None
+
+        parts = [primary.read_text(encoding="utf-8")]
+
+        # Load additional .md files in sorted order
+        for f in sorted(skill_dir.iterdir()):
+            if f.is_file() and f.suffix.lower() == ".md" and f.name != "SKILL.md":
+                parts.append(f.read_text(encoding="utf-8"))
+
+        return "\n\n---\n\n".join(parts)
     
     def load_skills_for_context(self, skill_names: list[str]) -> str:
         """

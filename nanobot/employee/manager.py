@@ -44,6 +44,11 @@ class EmployeeManager:
 
     async def start(self) -> None:
         """Register all enabled employees as webchat channels."""
+        # Inject workspace/config paths into webchat module for API endpoints
+        from nanobot.channels.webchat import set_paths
+        from nanobot.config.loader import get_config_path
+        set_paths(self.workspace, get_config_path())
+
         # Collect reserved ports (gateway, main webchat, etc.)
         self._collect_reserved_ports()
 
