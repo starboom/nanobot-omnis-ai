@@ -347,10 +347,98 @@ class WebChatChannel(BaseChannel):
         )
 
         logger.info(f"WebChat running at http://{self.config.host}:{self.config.port}/")
+        if self.config.http_port > 0:
+            asyncio.create_task(self._run_http_api(self.config.http_port))
+            logger.info(f"HTTP chat API at http://{self.config.host}:{self.config.http_port}/chat")
 
         while self._running:
             await asyncio.sleep(1)
 
+        server.close()
+        await server.wait_closed()
+
+    async def _run_http_api(self, port: int) -> None:
+        """Minimal asyncio HTTP server for POST /chat (separate port, bypasses websockets)."""
+
+        async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+            try:
+                line = await asyncio.wait_for(reader.readline(), timeout=10)
+                parts = line.decode(errors="replace").split()
+                if len(parts) < 2:
+                    return
+                method, path = parts[0], parts[1]
+
+                # Read headers
+                content_length = 0
+                while True:
+                    hline = await asyncio.wait_for(reader.readline(), timeout=10)
+                    if hline in (b"\r\n", b"\n", b""):
+                        break
+                    if hline.lower().startswith(b"content-length:"):
+                        content_length = int(hline.split(b":", 1)[1].strip())
+
+                body = await reader.read(content_length) if content_length else b""
+
+                if method == "POST" and path == "/chat":
+                    try:
+                        data = json.loads(body)
+                        message = str(data.get("message", "")).strip()
+                        if not message:
+                            resp_body = json.dumps({"error": "message is required"}).encode()
+                            status = "400 Bad Request"
+                        else:
+                            session_id = "http_" + str(uuid.uuid4())[:8]
+                            self._response_queues[session_id] = asyncio.Queue()
+                            metadata = {}
+                            if self.skill:
+                                metadata["skill"] = self.skill
+                            if self.agent_id:
+                                metadata["agent_id"] = self.agent_id
+                            await self._handle_message(
+                                sender_id=session_id,
+                                chat_id=session_id,
+                                content=message,
+                                metadata=metadata,
+                            )
+                            try:
+                                reply = await asyncio.wait_for(
+                                    self._response_queues[session_id].get(), timeout=60.0
+                                )
+                                resp_body = json.dumps({"reply": reply}, ensure_ascii=False).encode()
+                                status = "200 OK"
+                            except asyncio.TimeoutError:
+                                resp_body = json.dumps({"error": "timeout"}).encode()
+                                status = "504 Gateway Timeout"
+                            finally:
+                                self._response_queues.pop(session_id, None)
+                    except (json.JSONDecodeError, UnicodeDecodeError):
+                        resp_body = json.dumps({"error": "invalid JSON"}).encode()
+                        status = "400 Bad Request"
+                    except Exception as e:
+                        logger.error(f"HTTP /chat error: {e}")
+                        resp_body = json.dumps({"error": str(e)}).encode()
+                        status = "500 Internal Server Error"
+                else:
+                    resp_body = json.dumps({"error": "not found"}).encode()
+                    status = "404 Not Found"
+
+                response = (
+                    f"HTTP/1.1 {status}\r\n"
+                    f"Content-Type: application/json; charset=utf-8\r\n"
+                    f"Access-Control-Allow-Origin: *\r\n"
+                    f"Content-Length: {len(resp_body)}\r\n"
+                    f"Connection: close\r\n\r\n"
+                ).encode() + resp_body
+                writer.write(response)
+                await writer.drain()
+            except Exception as e:
+                logger.debug(f"HTTP API handler error: {e}")
+            finally:
+                writer.close()
+
+        server = await asyncio.start_server(handle, self.config.host, port)
+        while self._running:
+            await asyncio.sleep(1)
         server.close()
         await server.wait_closed()
 

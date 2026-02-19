@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>omnis.ai — Portal</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+
+:root {
+  --bg: #faf9f7;
+  --surface: #ffffff;
+  --surface-hover: #f5f3f0;
+  --border: #e8e5e0;
+  --border-hover: #d4d0ca;
+  --text-primary: #1a1a1a;
+  --text-secondary: #6b6560;
+  --text-muted: #a8a29e;
+  --accent-1: #e85d4a;
+  --accent-2: #2d7ff9;
+  --accent-3: #18a058;
+  --accent-4: #e8a317;
+  --accent-5: #7c5cfc;
+  --accent-6: #e44d8a;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.08);
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'Noto Sans SC', system-ui, sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text-primary); min-height: 100vh; }
+body::before { content:''; position:fixed; top:0; left:0; right:0; height:300px; background:linear-gradient(180deg,rgba(232,93,74,0.04) 0%,rgba(45,127,249,0.02) 50%,transparent 100%); pointer-events:none; z-index:0; }
+
+.container { max-width: 960px; margin: 0 auto; padding: 40px 24px; position: relative; z-index: 1; }
+
+.nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:32px; }
+.nav-brand { font-family:var(--mono); font-size:13px; font-weight:500; letter-spacing:0.08em; color:var(--text-muted); text-transform:uppercase; }
+.nav-links { display:flex; gap:8px; align-items:center; }
+.nav-links button { font-family:var(--sans); font-size:13px; font-weight:500; padding:7px 16px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text-primary); cursor:pointer; transition:all 0.2s; }
+.nav-links button:hover { border-color:var(--border-hover); background:var(--surface-hover); }
+.nav-links button.active { background:var(--text-primary); color:var(--surface); border-color:var(--text-primary); }
+.nav-user { font-family:var(--mono); font-size:12px; color:var(--text-secondary); margin-right:8px; }
+.badge { display:inline-block; font-family:var(--mono); font-size:11px; padding:2px 8px; border-radius:10px; background:var(--accent-5); color:#fff; margin-left:6px; }
+.badge.owner { background:var(--accent-4); }
+.badge.admin { background:var(--accent-1); }
+
+.view { display:none; animation:fadeIn 0.3s ease; }
+.view.active { display:block; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+.auth-box { max-width:380px; margin:80px auto; background:var(--surface); border-radius:16px; padding:36px; box-shadow:var(--shadow-lg); }
+.auth-box h2 { font-size:22px; font-weight:600; margin-bottom:24px; }
+.form-group { margin-bottom:16px; }
+.form-group label { display:block; font-size:13px; font-weight:500; color:var(--text-secondary); margin-bottom:6px; }
+.form-group input, .form-group select { width:100%; font-family:var(--mono); font-size:13px; padding:9px 12px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text-primary); outline:none; transition:border-color 0.2s; }
+.form-group input:focus, .form-group select:focus { border-color:var(--accent-2); }
+.btn { font-family:var(--sans); font-size:13px; font-weight:500; padding:10px 20px; border-radius:8px; border:none; cursor:pointer; transition:all 0.2s; }
+.btn-primary { background:var(--text-primary); color:var(--surface); width:100%; }
+.btn-primary:hover { opacity:0.85; }
+.btn-primary:disabled { opacity:0.4; cursor:not-allowed; }
+.auth-switch { text-align:center; margin-top:16px; font-size:13px; color:var(--text-secondary); }
+.auth-switch a { color:var(--accent-2); cursor:pointer; text-decoration:none; }
+.form-error { color:var(--accent-1); font-size:12px; margin-top:8px; display:none; }
+
+.section-title { font-size:20px; font-weight:600; margin-bottom:20px; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:22px 20px; transition:all 0.25s; }
+.card:hover { border-color:var(--border-hover); box-shadow:var(--shadow-md); transform:translateY(-2px); }
+.card-name { font-size:16px; font-weight:600; margin-bottom:6px; }
+.card-skill { font-family:var(--mono); font-size:12px; color:var(--text-muted); margin-bottom:10px; }
+.card-desc { font-size:13px; color:var(--text-secondary); margin-bottom:14px; line-height:1.5; }
+.card-footer { display:flex; align-items:center; justify-content:space-between; }
+.card-price { font-family:var(--mono); font-size:14px; font-weight:500; color:var(--accent-4); }
+.card-status { font-size:11px; padding:3px 10px; border-radius:10px; }
+.card-status.online { background:rgba(24,160,88,0.1); color:var(--accent-3); }
+.card-status.offline { background:rgba(168,162,158,0.15); color:var(--text-muted); }
+.btn-use { font-family:var(--sans); font-size:12px; font-weight:500; padding:6px 14px; border-radius:8px; border:1px solid var(--accent-2); background:transparent; color:var(--accent-2); cursor:pointer; transition:all 0.2s; }
+.btn-use:hover { background:var(--accent-2); color:#fff; }
+.btn-use:disabled { opacity:0.4; cursor:not-allowed; }
+
+.balance-bar { display:flex; align-items:center; gap:16px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 20px; margin-bottom:24px; }
+.balance-label { font-size:13px; color:var(--text-secondary); }
+.balance-value { font-family:var(--mono); font-size:20px; font-weight:500; color:var(--accent-4); }
+.balance-unit { font-size:13px; color:var(--text-muted); margin-left:4px; }
+
+.listing-form { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:24px; margin-bottom:24px; }
+.listing-form h3 { font-size:16px; font-weight:600; margin-bottom:16px; }
+.form-row { display:flex; gap:12px; margin-bottom:12px; }
+.form-row .form-group { flex:1; }
+.form-row .form-group.small { flex:0 0 120px; }
+
+.tx-table { width:100%; border-collapse:collapse; font-size:13px; }
+.tx-table th { text-align:left; font-weight:500; color:var(--text-secondary); padding:8px 12px; border-bottom:1px solid var(--border); }
+.tx-table td { padding:8px 12px; border-bottom:1px solid var(--border); }
+.tx-table .tx-in { color:var(--accent-3); }
+.tx-table .tx-out { color:var(--accent-1); }
+
+.empty-state { text-align:center; padding:60px 20px; color:var(--text-muted); font-size:14px; }
+.toast { position:fixed; bottom:24px; right:24px; background:var(--text-primary); color:var(--surface); padding:12px 20px; border-radius:10px; font-size:13px; z-index:200; animation:fadeIn 0.3s ease; display:none; }
+
+/* Admin */
+.stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:28px; }
+.stat-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px 16px; text-align:center; }
+.stat-value { font-family:var(--mono); font-size:28px; font-weight:600; color:var(--accent-2); }
+.stat-label { font-size:12px; color:var(--text-muted); margin-top:4px; }
+.admin-section { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:22px; margin-bottom:20px; }
+.admin-subtitle { font-size:15px; font-weight:600; margin-bottom:14px; color:var(--text-primary); }
+.topup-bar { display:flex; gap:10px; align-items:center; margin-bottom:16px; }
+.topup-bar input { font-family:var(--mono); font-size:13px; padding:8px 12px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text-primary); outline:none; }
+.topup-bar input:focus { border-color:var(--accent-2); }
+.role-select { font-family:var(--mono); font-size:11px; padding:3px 6px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text-primary); cursor:pointer; }
+@media (max-width:640px) { .stats-row { grid-template-columns:repeat(2,1fr); } }
+
+/* Skill Editor Modal */
+.modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:100; display:none; align-items:center; justify-content:center; animation:fadeIn 0.2s ease; }
+.modal-overlay.active { display:flex; }
+.modal { background:var(--surface); border-radius:16px; width:90%; max-width:640px; max-height:85vh; display:flex; flex-direction:column; box-shadow:var(--shadow-lg); }
+.modal-header { display:flex; align-items:center; justify-content:space-between; padding:20px 24px 16px; border-bottom:1px solid var(--border); }
+.modal-header h3 { font-size:16px; font-weight:600; }
+.modal-header-actions { display:flex; gap:8px; align-items:center; }
+.modal-body { flex:1; padding:16px 24px; overflow-y:auto; }
+.modal-body textarea { width:100%; min-height:360px; font-family:var(--mono); font-size:13px; line-height:1.6; padding:14px; border:1px solid var(--border); border-radius:10px; background:var(--bg); color:var(--text-primary); resize:vertical; outline:none; }
+.modal-body textarea:focus { border-color:var(--accent-2); }
+.modal-footer { display:flex; justify-content:flex-end; gap:10px; padding:16px 24px 20px; border-top:1px solid var(--border); }
+.btn-secondary { font-family:var(--sans); font-size:13px; font-weight:500; padding:9px 18px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text-primary); cursor:pointer; transition:all 0.2s; }
+.btn-secondary:hover { background:var(--surface-hover); }
+.btn-upload { font-family:var(--sans); font-size:12px; font-weight:500; padding:6px 14px; border-radius:8px; border:1px solid var(--accent-5); background:transparent; color:var(--accent-5); cursor:pointer; transition:all 0.2s; }
+.btn-upload:hover { background:var(--accent-5); color:#fff; }
+.btn-edit-skill { font-family:var(--sans); font-size:12px; font-weight:500; padding:6px 14px; border-radius:8px; border:1px solid var(--accent-5); background:transparent; color:var(--accent-5); cursor:pointer; transition:all 0.2s; margin-top:6px; }
+.btn-edit-skill:hover { background:var(--accent-5); color:#fff; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="nav" id="nav" style="display:none">
+    <div class="nav-brand">omnis.ai portal</div>
+    <div class="nav-links">
+      <span class="nav-user" id="nav-user"></span>
+      <button id="btn-market" onclick="showView('market')">市场</button>
+      <button id="btn-dashboard" onclick="showView('dashboard')" style="display:none">管理</button>
+      <button id="btn-admin" onclick="showView('admin')" style="display:none">后台</button>
+      <button id="btn-wallet" onclick="showView('wallet')">仙豆</button>
+      <button onclick="logout()">退出</button>
+    </div>
+  </div>
+
+  <div class="view active" id="view-auth">
+    <div class="auth-box">
+      <h2 id="auth-title">登录</h2>
+      <div class="form-group">
+        <label>用户名</label>
+        <input type="text" id="auth-username" placeholder="3-32位字母数字下划线">
+      </div>
+      <div class="form-group">
+        <label>密码</label>
+        <input type="password" id="auth-password" placeholder="至少6位">
+      </div>
+      <div class="form-group" id="auth-extra" style="display:none">
+        <label>昵称</label>
+        <input type="text" id="auth-display" placeholder="可选">
+        <div style="margin-top:10px">
+          <label>角色</label>
+          <select id="auth-role">
+            <option value="user">Agent User — 使用数字员工</option>
+            <option value="owner">Agents Owner — 创建和管理数字员工</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-error" id="auth-error"></div>
+      <button class="btn btn-primary" id="auth-submit" onclick="submitAuth()">登录</button>
+      <div class="auth-switch" id="auth-switch">
+        还没有账号？<a onclick="toggleAuthMode()">注册</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="view" id="view-market">
+    <div class="balance-bar">
+      <span class="balance-label">仙豆余额</span>
+      <span class="balance-value" id="market-balance">0</span>
+      <span class="balance-unit">仙豆</span>
+    </div>
+    <h2 class="section-title">数字员工市场</h2>
+    <div class="grid" id="market-grid"></div>
+    <div class="empty-state" id="market-empty" style="display:none">暂无上架的数字员工</div>
+  </div>
+
+  <div class="view" id="view-dashboard">
+    <h2 class="section-title">我的数字员工</h2>
+    <div class="listing-form">
+      <h3>上架数字员工</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>员工 ID</label>
+          <input type="text" id="lst-employee" list="lst-employee-list" placeholder="输入或选择员工 ID" oninput="onEmployeeInput()">
+          <datalist id="lst-employee-list"></datalist>
+        </div>
+        <div class="form-group">
+          <label>名称</label>
+          <input type="text" id="lst-name" placeholder="数字员工名称">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>技能</label>
+          <input type="text" id="lst-skill" list="lst-skill-list" placeholder="输入或选择技能标识">
+          <datalist id="lst-skill-list"></datalist>
+          <button class="btn-edit-skill" onclick="openSkillEditor()">编辑技能内容</button>
+        </div>
+        <div class="form-group small">
+          <label>价格 (仙豆)</label>
+          <input type="number" id="lst-price" value="10" min="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>描述</label>
+        <input type="text" id="lst-desc" placeholder="简要描述该数字员工的能力">
+      </div>
+      <div class="form-error" id="lst-error"></div>
+      <button class="btn btn-primary" style="width:auto;margin-top:8px" onclick="submitListing()">上架 / 更新</button>
+    </div>
+    <div class="grid" id="owner-grid"></div>
+    <div class="empty-state" id="owner-empty" style="display:none">你还没有上架任何数字员工</div>
+  </div>
+
+  <div class="view" id="view-wallet">
+    <div class="balance-bar">
+      <span class="balance-label">仙豆余额</span>
+      <span class="balance-value" id="wallet-balance">0</span>
+      <span class="balance-unit">仙豆</span>
+    </div>
+    <h2 class="section-title">交易记录</h2>
+    <table class="tx-table" id="tx-table">
+      <thead><tr><th>时间</th><th>类型</th><th>金额</th><th>备注</th></tr></thead>
+      <tbody id="tx-body"></tbody>
+    </table>
+    <div class="empty-state" id="tx-empty" style="display:none">暂无交易记录</div>
+  </div>
+
+  <!-- Admin View -->
+  <div class="view" id="view-admin">
+    <h2 class="section-title">管理后台</h2>
+
+    <!-- Stats Overview -->
+    <div class="stats-row" id="admin-stats-row">
+      <div class="stat-card"><div class="stat-value" id="stat-owners">0</div><div class="stat-label">Owner</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-users">0</div><div class="stat-label">User</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-listings">0</div><div class="stat-label">上架员工</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-xiandou">0</div><div class="stat-label">流通仙豆</div></div>
+    </div>
+
+    <!-- Top Agents -->
+    <div class="admin-section">
+      <h3 class="admin-subtitle">热门数字员工 TOP 10</h3>
+      <table class="tx-table" id="top-agents-table">
+        <thead><tr><th>员工</th><th>技能</th><th>使用次数</th><th>收入仙豆</th></tr></thead>
+        <tbody id="top-agents-body"></tbody>
+      </table>
+      <div class="empty-state" id="top-agents-empty" style="display:none">暂无数据</div>
+    </div>
+
+    <!-- Top Skills -->
+    <div class="admin-section">
+      <h3 class="admin-subtitle">热门技能 TOP 10</h3>
+      <table class="tx-table" id="top-skills-table">
+        <thead><tr><th>技能</th><th>使用次数</th><th>收入仙豆</th></tr></thead>
+        <tbody id="top-skills-body"></tbody>
+      </table>
+      <div class="empty-state" id="top-skills-empty" style="display:none">暂无数据</div>
+    </div>
+
+    <!-- User Management -->
+    <div class="admin-section">
+      <h3 class="admin-subtitle">用户管理</h3>
+      <div class="topup-bar">
+        <input type="number" id="topup-uid" placeholder="用户 ID" min="1" style="width:100px">
+        <input type="number" id="topup-amount" placeholder="仙豆数量" min="1" style="width:120px">
+        <button class="btn btn-primary" style="width:auto;padding:8px 16px" onclick="adminTopup()">充值</button>
+      </div>
+      <table class="tx-table" id="admin-users-table">
+        <thead><tr><th>ID</th><th>用户名</th><th>昵称</th><th>角色</th><th>仙豆</th><th>使用次数</th><th>注册时间</th><th>操作</th></tr></thead>
+        <tbody id="admin-users-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="admin-section">
+      <h3 class="admin-subtitle">最近交易</h3>
+      <table class="tx-table" id="admin-tx-table">
+        <thead><tr><th>时间</th><th>发起方</th><th>接收方</th><th>类型</th><th>金额</th><th>备注</th></tr></thead>
+        <tbody id="admin-tx-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Skill Editor Modal -->
+<div class="modal-overlay" id="skill-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="skill-modal-title">编辑技能内容</h3>
+      <div class="modal-header-actions">
+        <button class="btn-upload" onclick="document.getElementById('skill-file-input').click()">上传 .md 文件</button>
+        <input type="file" id="skill-file-input" accept=".md" style="display:none" onchange="handleSkillFileUpload(event)">
+      </div>
+    </div>
+    <div class="modal-body">
+      <textarea id="skill-editor" placeholder="在此编辑技能 Markdown 内容..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeSkillEditor()">取消</button>
+      <button class="btn btn-primary" style="width:auto" onclick="saveSkillContent()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let token = localStorage.getItem('portal_token');
+let currentUser = null;
+let isRegister = false;
+let ws = null;
+let wsCallbacks = {};
+let wsReqId = 0;
+
+// --- WebSocket ---
+function connectWS() {
+  return new Promise((resolve, reject) => {
+    if (ws && ws.readyState === WebSocket.OPEN) { resolve(); return; }
+    ws = new WebSocket(`ws://${location.host}/ws`);
+    ws.onopen = () => resolve();
+    ws.onerror = () => reject(new Error('WebSocket 连接失败'));
+    ws.onclose = () => { ws = null; };
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        const type = msg.type || '';
+        // Find matching callback
+        for (const [id, cb] of Object.entries(wsCallbacks)) {
+          if (cb.type === type) {
+            cb.resolve(msg);
+            delete wsCallbacks[id];
+            return;
+          }
+        }
+      } catch {}
+    };
+  });
+}
+
+async function wsSend(type, data) {
+  await connectWS();
+  const id = ++wsReqId;
+  const resultType = type + '_result';
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => { delete wsCallbacks[id]; reject(new Error('超时')); }, 10000);
+    wsCallbacks[id] = {
+      type: resultType,
+      resolve: (msg) => { clearTimeout(timeout); resolve(msg); },
+    };
+    const payload = {type, data: data || {}};
+    if (token) payload.token = token;
+    ws.send(JSON.stringify(payload));
+  });
+}
+
+// --- GET API (via fetch, token in query) ---
+async function apiGet(path) {
+  const sep = path.includes('?') ? '&' : '?';
+  const url = token ? `${path}${sep}token=${encodeURIComponent(token)}` : path;
+  const res = await fetch(url);
+  return res.json();
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 3000);
+}
+
+// --- Auth ---
+function toggleAuthMode() {
+  isRegister = !isRegister;
+  document.getElementById('auth-title').textContent = isRegister ? '注册' : '登录';
+  document.getElementById('auth-extra').style.display = isRegister ? 'block' : 'none';
+  document.getElementById('auth-submit').textContent = isRegister ? '注册' : '登录';
+  document.getElementById('auth-switch').innerHTML = isRegister
+    ? '已有账号？<a onclick="toggleAuthMode()">登录</a>'
+    : '还没有账号？<a onclick="toggleAuthMode()">注册</a>';
+  document.getElementById('auth-error').style.display = 'none';
+}
+
+async function submitAuth() {
+  const errEl = document.getElementById('auth-error');
+  errEl.style.display = 'none';
+  const username = document.getElementById('auth-username').value.trim();
+  const password = document.getElementById('auth-password').value;
+  if (!username || !password) { errEl.textContent = '请填写用户名和密码'; errEl.style.display = 'block'; return; }
+
+  const btn = document.getElementById('auth-submit');
+  btn.disabled = true;
+
+  try {
+    let r;
+    if (isRegister) {
+      const display_name = document.getElementById('auth-display').value.trim() || username;
+      const role = document.getElementById('auth-role').value;
+      r = await wsSend('register', {username, password, display_name, role});
+    } else {
+      r = await wsSend('login', {username, password});
+    }
+    if (!r.ok) { errEl.textContent = r.error || '操作失败'; errEl.style.display = 'block'; return; }
+    token = r.token;
+    localStorage.setItem('portal_token', token);
+    currentUser = r.user;
+    enterApp();
+  } catch (e) {
+    errEl.textContent = e.message; errEl.style.display = 'block';
+  } finally { btn.disabled = false; }
+}
+
+function logout() {
+  token = null;
+  currentUser = null;
+  localStorage.removeItem('portal_token');
+  if (ws) { ws.close(); ws = null; }
+  document.getElementById('nav').style.display = 'none';
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-auth').classList.add('active');
+}
+
+async function enterApp() {
+  if (!currentUser) {
+    try {
+      const data = await apiGet('/api/auth/me');
+      if (data.error) { logout(); return; }
+      currentUser = data;
+    } catch { logout(); return; }
+  }
+  document.getElementById('nav').style.display = 'flex';
+  const roleBadge = currentUser.role === 'admin' ? '<span class="badge admin">admin</span>'
+    : currentUser.role === 'owner' ? '<span class="badge owner">owner</span>'
+    : '<span class="badge">user</span>';
+  document.getElementById('nav-user').innerHTML = `${esc(currentUser.display_name || currentUser.username)} ${roleBadge}`;
+  document.getElementById('btn-dashboard').style.display =
+    (currentUser.role === 'owner' || currentUser.role === 'admin') ? 'inline-block' : 'none';
+  document.getElementById('btn-admin').style.display =
+    currentUser.role === 'admin' ? 'inline-block' : 'none';
+  document.getElementById('view-auth').classList.remove('active');
+  showView('market');
+}
+
+// --- Views ---
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(`view-${name}`).classList.add('active');
+  document.querySelectorAll('.nav-links button').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById(`btn-${name}`);
+  if (btn) btn.classList.add('active');
+  if (name === 'market') loadMarket();
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'wallet') loadWallet();
+  if (name === 'admin') loadAdmin();
+}
+
+// --- Market ---
+async function loadMarket() {
+  const [listings, bal] = await Promise.all([apiGet('/api/marketplace'), apiGet('/api/xiandou/balance')]);
+  document.getElementById('market-balance').textContent = bal.balance || 0;
+  const grid = document.getElementById('market-grid');
+  if (!listings.length) { grid.innerHTML = ''; document.getElementById('market-empty').style.display = 'block'; return; }
+  document.getElementById('market-empty').style.display = 'none';
+  const ACCENTS = ['var(--accent-1)','var(--accent-2)','var(--accent-3)','var(--accent-4)','var(--accent-5)','var(--accent-6)'];
+  grid.innerHTML = listings.map((l, i) => `
+    <div class="card">
+      <div class="card-name" style="color:${ACCENTS[i % ACCENTS.length]}">${esc(l.employee_name)}</div>
+      <div class="card-skill">${esc(l.skill)} · by ${esc(l.owner_name || '?')}</div>
+      <div class="card-desc">${esc(l.description || '暂无描述')}</div>
+      <div class="card-footer">
+        <span class="card-price">${l.price} 仙豆</span>
+        <span class="card-status ${l.online ? 'online' : 'offline'}">${l.online ? '在线' : '离线'}</span>
+        <button class="btn-use" onclick="useAgent(${l.id})" ${!l.online ? 'disabled' : ''}>使用</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function useAgent(listingId) {
+  try {
+    const r = await wsSend('use_agent', {listing_id: listingId});
+    if (!r.ok) { toast(r.error || '使用失败'); return; }
+    toast(`已支付 ${r.charged} 仙豆`);
+    if (r.port) window.open(`http://${location.hostname}:${r.port}/`, '_blank');
+    loadMarket();
+  } catch (e) { toast(e.message); }
+}
+
+// --- Dashboard ---
+async function loadDashboard() {
+  const [listings, emps] = await Promise.all([apiGet('/api/owner/listings'), apiGet('/api/employees')]);
+  const employees = emps || [];
+  // Populate employee datalist
+  const empList = document.getElementById('lst-employee-list');
+  empList.innerHTML = employees.map(e => `<option value="${esc(e.id)}" label="${esc(e.name)}">`).join('');
+  // Populate skill datalist (unique skills)
+  const skills = [...new Set(employees.map(e => e.skill).filter(Boolean))];
+  const skillList = document.getElementById('lst-skill-list');
+  skillList.innerHTML = skills.map(s => `<option value="${esc(s)}">`).join('');
+  // Store employees for auto-fill
+  window._employees = employees;
+  const grid = document.getElementById('owner-grid');
+  const rows = listings || [];
+  if (!rows.length) { grid.innerHTML = ''; document.getElementById('owner-empty').style.display = 'block'; return; }
+  document.getElementById('owner-empty').style.display = 'none';
+  window._ownerListings = rows;
+  grid.innerHTML = rows.map((l, i) => `
+    <div class="card">
+      <div class="card-name">${esc(l.employee_name)}</div>
+      <div class="card-skill">${esc(l.skill)} · #${l.employee_id}</div>
+      <div class="card-desc">${esc(l.description || '暂无描述')}</div>
+      <div class="card-footer">
+        <span class="card-price">${l.price} 仙豆</span>
+        <span class="card-status ${l.online ? 'online' : 'offline'}">${l.online ? '在线' : '离线'}</span>
+        <button class="btn-use" onclick="editListing(${i})">编辑</button>
+        <button class="btn-use" style="border-color:var(--accent-1);color:var(--accent-1)" onclick="deleteListing(${l.id})">下架</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function onEmployeeInput() {
+  const val = document.getElementById('lst-employee').value.trim();
+  const emp = (window._employees || []).find(e => String(e.id) === val);
+  if (emp) {
+    document.getElementById('lst-name').value = emp.name || '';
+    document.getElementById('lst-skill').value = emp.skill || '';
+  }
+}
+
+async function submitListing() {
+  const errEl = document.getElementById('lst-error');
+  errEl.style.display = 'none';
+  const employee_id = document.getElementById('lst-employee').value.trim();
+  const employee_name = document.getElementById('lst-name').value.trim();
+  const skill = document.getElementById('lst-skill').value.trim();
+  const price = parseInt(document.getElementById('lst-price').value) || 0;
+  const description = document.getElementById('lst-desc').value.trim();
+  if (!employee_id || !employee_name) { errEl.textContent = '请选择员工并填写名称'; errEl.style.display = 'block'; return; }
+
+  // Auto-save unsaved skill content
+  if (_skillEditorDirty && skill) {
+    const content = document.getElementById('skill-editor').value.trim();
+    if (content) {
+      try {
+        const sr = await wsSend('save_skill', { skill_name: skill, content });
+        if (sr.ok) _skillEditorDirty = false;
+      } catch {}
+    }
+  }
+
+  try {
+    const r = await wsSend('create_listing', {employee_id, employee_name, skill, price, description});
+    if (!r.ok) { errEl.textContent = r.error || '上架失败'; errEl.style.display = 'block'; return; }
+    toast('上架成功');
+    loadDashboard();
+  } catch (e) { errEl.textContent = e.message; errEl.style.display = 'block'; }
+}
+
+async function deleteListing(id) {
+  if (!confirm('确认下架？')) return;
+  try {
+    await wsSend('delete_listing', {id});
+    toast('已下架');
+    loadDashboard();
+  } catch (e) { toast(e.message); }
+}
+
+function editListing(index) {
+  const l = (window._ownerListings || [])[index];
+  if (!l) return;
+  document.getElementById('lst-employee').value = l.employee_id || '';
+  document.getElementById('lst-name').value = l.employee_name || '';
+  document.getElementById('lst-skill').value = l.skill || '';
+  document.getElementById('lst-price').value = l.price || 0;
+  document.getElementById('lst-desc').value = l.description || '';
+  document.querySelector('.listing-form').scrollIntoView({behavior: 'smooth'});
+}
+
+// --- Wallet ---
+async function loadWallet() {
+  const [bal, txs] = await Promise.all([apiGet('/api/xiandou/balance'), apiGet('/api/xiandou/history')]);
+  document.getElementById('wallet-balance').textContent = bal.balance || 0;
+  const tbody = document.getElementById('tx-body');
+  if (!txs.length) { tbody.innerHTML = ''; document.getElementById('tx-empty').style.display = 'block'; return; }
+  document.getElementById('tx-empty').style.display = 'none';
+  tbody.innerHTML = txs.map(tx => {
+    const isTopup = tx.tx_type === 'topup';
+    const isPaymentIn = tx.tx_type === 'payment' && tx.to_user_id === currentUser.id;
+    const positive = (isTopup && tx.to_user_id === currentUser.id) || isPaymentIn;
+    const typeLabel = {topup:'充值', payment:'支付', refund:'退款'}[tx.tx_type] || tx.tx_type;
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:12px">${tx.created_at || '-'}</td>
+      <td>${typeLabel}</td>
+      <td class="${positive ? 'tx-in' : 'tx-out'}">${positive ? '+' : '-'}${tx.amount}</td>
+      <td style="color:var(--text-muted)">${esc(tx.memo || '')}</td>
+    </tr>`;
+  }).join('');
+}
+
+// --- Admin ---
+async function loadAdmin() {
+  const [stats, users] = await Promise.all([apiGet('/api/admin/stats'), apiGet('/api/admin/users')]);
+
+  // Stats overview
+  const rc = stats.role_counts || {};
+  document.getElementById('stat-owners').textContent = rc.owner || 0;
+  document.getElementById('stat-users').textContent = rc.user || 0;
+  document.getElementById('stat-listings').textContent = stats.total_listings || 0;
+  document.getElementById('stat-xiandou').textContent = stats.total_xiandou || 0;
+
+  // Top agents
+  const agentsBody = document.getElementById('top-agents-body');
+  const topAgents = stats.top_agents || [];
+  if (!topAgents.length) {
+    agentsBody.innerHTML = '';
+    document.getElementById('top-agents-empty').style.display = 'block';
+  } else {
+    document.getElementById('top-agents-empty').style.display = 'none';
+    agentsBody.innerHTML = topAgents.map(a => `<tr>
+      <td style="font-weight:500">${esc(a.employee_name)}</td>
+      <td style="font-family:var(--mono);font-size:12px">${esc(a.skill)}</td>
+      <td>${a.usage_count}</td>
+      <td class="tx-in">${a.total_earned}</td>
+    </tr>`).join('');
+  }
+
+  // Top skills
+  const skillsBody = document.getElementById('top-skills-body');
+  const topSkills = stats.top_skills || [];
+  if (!topSkills.length) {
+    skillsBody.innerHTML = '';
+    document.getElementById('top-skills-empty').style.display = 'block';
+  } else {
+    document.getElementById('top-skills-empty').style.display = 'none';
+    skillsBody.innerHTML = topSkills.map(s => `<tr>
+      <td style="font-family:var(--mono);font-size:12px;font-weight:500">${esc(s.skill)}</td>
+      <td>${s.usage_count}</td>
+      <td class="tx-in">${s.total_earned}</td>
+    </tr>`).join('');
+  }
+
+  // Users table
+  const usersBody = document.getElementById('admin-users-body');
+  const userList = users || [];
+  usersBody.innerHTML = userList.map(u => `<tr>
+    <td style="font-family:var(--mono)">${u.id}</td>
+    <td style="font-weight:500">${esc(u.username)}</td>
+    <td>${esc(u.display_name || '')}</td>
+    <td>
+      <select class="role-select" onchange="adminChangeRole(${u.id}, this.value)" ${u.id === currentUser.id ? 'disabled' : ''}>
+        <option value="user" ${u.role==='user'?'selected':''}>user</option>
+        <option value="owner" ${u.role==='owner'?'selected':''}>owner</option>
+        <option value="admin" ${u.role==='admin'?'selected':''}>admin</option>
+      </select>
+    </td>
+    <td style="font-family:var(--mono);color:var(--accent-4)">${u.balance}</td>
+    <td>${u.usage_count || 0}</td>
+    <td style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">${u.created_at || ''}</td>
+    <td><button class="btn-use" style="font-size:11px;padding:3px 10px" onclick="document.getElementById('topup-uid').value=${u.id}">充值</button></td>
+  </tr>`).join('');
+
+  // Recent transactions
+  const txBody = document.getElementById('admin-tx-body');
+  const recentTxs = stats.recent_txs || [];
+  const typeLabel = {topup:'充值', payment:'支付', refund:'退款'};
+  txBody.innerHTML = recentTxs.map(tx => `<tr>
+    <td style="font-family:var(--mono);font-size:11px">${tx.created_at || '-'}</td>
+    <td>${esc(tx.from_username || '系统')}</td>
+    <td>${esc(tx.to_username || '-')}</td>
+    <td>${typeLabel[tx.tx_type] || tx.tx_type}</td>
+    <td style="font-weight:500">${tx.amount}</td>
+    <td style="color:var(--text-muted);font-size:12px">${esc(tx.memo || '')}</td>
+  </tr>`).join('');
+}
+
+async function adminTopup() {
+  const uid = parseInt(document.getElementById('topup-uid').value) || 0;
+  const amount = parseInt(document.getElementById('topup-amount').value) || 0;
+  if (!uid || !amount) { toast('请填写用户 ID 和仙豆数量'); return; }
+  try {
+    const r = await wsSend('topup', {user_id: uid, amount});
+    if (!r.ok) { toast(r.error || '充值失败'); return; }
+    toast(`已充值 ${amount} 仙豆`);
+    document.getElementById('topup-uid').value = '';
+    document.getElementById('topup-amount').value = '';
+    loadAdmin();
+  } catch (e) { toast(e.message); }
+}
+
+async function adminChangeRole(userId, newRole) {
+  try {
+    const r = await wsSend('admin_update_user', {user_id: userId, role: newRole});
+    if (!r.ok) { toast(r.error || '修改失败'); return; }
+    toast(`用户 #${userId} 角色已改为 ${newRole}`);
+  } catch (e) { toast(e.message); }
+}
+
+// --- Skill Editor ---
+let _skillEditorDirty = false;
+
+async function openSkillEditor() {
+  const skillName = document.getElementById('lst-skill').value.trim();
+  if (!skillName) { toast('请先填写技能标识'); return; }
+  const employeeId = document.getElementById('lst-employee').value.trim();
+  const empName = document.getElementById('lst-name').value.trim();
+
+  document.getElementById('skill-modal-title').textContent = `编辑技能 — ${skillName}`;
+  const editor = document.getElementById('skill-editor');
+  editor.value = '加载中...';
+  document.getElementById('skill-modal').classList.add('active');
+
+  try {
+    const data = await apiGet(`/api/skill-content?name=${encodeURIComponent(skillName)}`);
+    if (data.exists && data.content) {
+      editor.value = data.content;
+    } else {
+      // Generate default template client-side (matches server template)
+      const eid = employeeId || skillName;
+      const name = empName || skillName;
+      editor.value = `---\ndescription: "${name} 数字员工 ${eid}"\nalways: true\nmetadata: '{"nanobot": {"always": true}}'\n---\n\n# 数字员工 ${eid} — ${name}\n\n你是一名 **${name}**。\n\n## 你的身份\n\n- 工号：${eid}\n- 岗位：${name}\n- 专长：请在此处描述专长领域\n- 风格：请在此处描述工作风格\n\n## 核心职责\n\n请在此处描述核心职责和工作内容。\n\n## 工作方式\n\n- 先理解需求再行动\n- 输出内容要有结构感\n- 不确定的内容如实说明\n`;
+    }
+  } catch (e) {
+    editor.value = '';
+    toast('加载技能内容失败: ' + e.message);
+  }
+  _skillEditorDirty = false;
+  editor.addEventListener('input', () => { _skillEditorDirty = true; }, { once: true });
+}
+
+function closeSkillEditor() {
+  document.getElementById('skill-modal').classList.remove('active');
+  document.getElementById('skill-file-input').value = '';
+  _skillEditorDirty = false;
+}
+
+function handleSkillFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!file.name.endsWith('.md')) {
+    toast('仅支持 .md 文件');
+    event.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('skill-editor').value = e.target.result;
+    _skillEditorDirty = true;
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+async function saveSkillContent() {
+  const skillName = document.getElementById('lst-skill').value.trim();
+  const content = document.getElementById('skill-editor').value.trim();
+  if (!skillName) { toast('技能标识为空'); return; }
+  if (!content) { toast('技能内容不能为空'); return; }
+  try {
+    const r = await wsSend('save_skill', { skill_name: skillName, content });
+    if (!r.ok) { toast(r.error || '保存失败'); return; }
+    toast('技能内容已保存');
+    _skillEditorDirty = false;
+    closeSkillEditor();
+  } catch (e) { toast(e.message); }
+}
+
+// --- Utils ---
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// --- Init ---
+(async function init() {
+  if (token) await enterApp();
+})();
+</script>
+</body>
+</html>

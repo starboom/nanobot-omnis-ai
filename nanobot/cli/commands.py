@@ -308,6 +308,7 @@ def gateway(
     from nanobot.heartbeat.service import HeartbeatService
     from nanobot.employee.manager import EmployeeManager
     from nanobot.employee.watcher import ConfigWatcher
+    from nanobot.portal import PortalService
     
     if verbose:
         import logging
@@ -385,6 +386,22 @@ def gateway(
     # Create config watcher for hot-reload
     config_watcher = ConfigWatcher(get_config_path(), employee_manager.reload)
 
+    # Create portal service (marketplace, auth, xiandou)
+    portal = None
+    if config.portal.enabled:
+        from nanobot.channels import webchat as _webchat_mod
+        portal = PortalService(
+            host=config.portal.host,
+            port=config.portal.port,
+            http_port=config.portal.http_port or None,
+            employee_registry_fn=lambda: _webchat_mod._employee_registry,
+            config_path=get_config_path(),
+            workspace_path=config.workspace_path,
+        )
+        http_p = config.portal.http_port or (config.portal.port + 1)
+        console.print(f"[green]✓[/green] Portal WS:  http://{config.portal.host}:{config.portal.port}/")
+        console.print(f"[green]✓[/green] Portal API: http://{config.portal.host}:{http_p}/")
+
     cron_status = cron.status()
     if cron_status["jobs"] > 0:
         console.print(f"[green]✓[/green] Cron: {cron_status['jobs']} scheduled jobs")
@@ -400,12 +417,14 @@ def gateway(
             config_watcher.start(loop)
             if config.employees:
                 console.print(f"[green]✓[/green] Employees: {len(config.employees)} registered")
-            await asyncio.gather(
-                agent.run(),
-                channels.start_all(),
-            )
+            tasks = [agent.run(), channels.start_all()]
+            if portal:
+                tasks.append(portal.start())
+            await asyncio.gather(*tasks)
         except KeyboardInterrupt:
             console.print("\nShutting down...")
+            if portal:
+                await portal.stop()
             config_watcher.stop()
             await employee_manager.stop()
             heartbeat.stop()

@@ -39,6 +39,7 @@ dependencies = [
     "python-socks[asyncio]>=2.4.0",
     "prompt-toolkit>=3.0.0",
     "watchdog>=4.0.0",
+    "aiosqlite>=0.19.0",
 ]
 
 [project.optional-dependencies]
@@ -67,6 +68,7 @@ include = [
     "nanobot/**/*.py",
     "nanobot/skills/**/*.md",
     "nanobot/skills/**/*.sh",
+    "nanobot/portal/static/**/*.html",
 ]
 
 [tool.hatch.build.targets.sdist]

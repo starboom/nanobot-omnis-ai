@@ -116,18 +116,21 @@ class EmployeeManager:
         - If requested port is 0, auto-assign.
         """
         if requested > 0:
-            conflict = self._used_ports.get(requested)
-            if conflict is None:
+            conflict_ws = self._used_ports.get(requested)
+            conflict_http = self._used_ports.get(requested + 1)
+            if conflict_ws is None and conflict_http is None:
                 return requested
+            which = requested if conflict_ws else requested + 1
+            who = conflict_ws or conflict_http
             logger.warning(
-                f"Employee #{eid}: port {requested} conflicts with "
-                f"{'employee #' + conflict if not conflict.startswith('__') else conflict.strip('_')}. "
+                f"Employee #{eid}: port {which} conflicts with "
+                f"{'employee #' + who if not who.startswith('__') else who.strip('_')}. "
                 f"Auto-assigning a new port."
             )
 
-        # Auto-assign from range
-        for port in range(_AUTO_PORT_START, _AUTO_PORT_END + 1):
-            if port not in self._used_ports:
+        # Auto-assign from range (need both port and port+1 for http)
+        for port in range(_AUTO_PORT_START, _AUTO_PORT_END, 2):
+            if port not in self._used_ports and (port + 1) not in self._used_ports:
                 if requested > 0:
                     logger.info(f"Employee #{eid}: reassigned to port {port}")
                 else:
@@ -185,11 +188,15 @@ class EmployeeManager:
         )
 
         channel_name = f"webchat_{eid}"
+        http_port = port + 1
         wc_config = WebChatConfig(
             enabled=True,
             host="0.0.0.0",
             port=port,
+            http_port=http_port,
         )
+        # Reserve both ports
+        self._used_ports[http_port] = eid
         channel = WebChatChannel(
             wc_config, self.bus,
             agent_id=eid, skill=emp.skill,
@@ -199,7 +206,7 @@ class EmployeeManager:
         self._active[eid] = emp
         logger.info(
             f"Employee #{eid} ({emp.name}) online — "
-            f"port {port}, skill={emp.skill or 'default'}"
+            f"ws={port}, http={http_port}, skill={emp.skill or 'default'}"
         )
 
         self._sync_registry()
@@ -207,11 +214,10 @@ class EmployeeManager:
     async def _remove_employee(self, eid: str) -> None:
         channel_name = f"webchat_{eid}"
         await self.channel_manager.remove_channel(channel_name)
-        # Release port
+        # Release both ws and http ports
         for port, owner in list(self._used_ports.items()):
             if owner == eid:
                 del self._used_ports[port]
-                break
         self._active.pop(eid, None)
         logger.info(f"Employee #{eid} offline")
 
@@ -223,16 +229,15 @@ class EmployeeManager:
 
         entries = []
         for eid, emp in self._active.items():
-            # Find the actual port assigned to this employee
-            port = next(
-                (p for p, owner in self._used_ports.items() if owner == eid),
-                0,
-            )
+            # Find the actual ports assigned to this employee
+            ports = sorted(p for p, owner in self._used_ports.items() if owner == eid)
+            ws_port = ports[0] if ports else 0
             entries.append({
                 "id": eid,
                 "name": emp.name,
                 "skill": emp.skill,
-                "port": port,
+                "port": ws_port,
+                "http_port": ws_port + 1 if ws_port else 0,
                 "enabled": emp.enabled,
             })
         update_employee_registry(entries)

@@ -147,6 +147,7 @@ class WebChatConfig(BaseModel):
     enabled: bool = False
     host: str = "0.0.0.0"
     port: int = 18800
+    http_port: int = 0  # If > 0, start a plain HTTP POST /chat endpoint on this port
 
 
 class ChannelsConfig(BaseModel):
@@ -224,6 +225,14 @@ class ExecToolConfig(BaseModel):
     timeout: int = 60
 
 
+class PortalConfig(BaseModel):
+    """Business portal: marketplace, auth, xiandou transactions."""
+    enabled: bool = False
+    host: str = "0.0.0.0"
+    port: int = 18880
+    http_port: int = 0  # If > 0, use this port for HTTP API; otherwise port + 1
+
+
 class EmployeeConfig(BaseModel):
     """A digital employee bound to a skill and webchat port."""
     name: str = ""
@@ -247,6 +256,7 @@ class Config(BaseSettings):
     gateway: GatewayConfig = Field(default_factory=GatewayConfig)
     tools: ToolsConfig = Field(default_factory=ToolsConfig)
     employees: dict[str, EmployeeConfig] = Field(default_factory=dict)
+    portal: PortalConfig = Field(default_factory=PortalConfig)
     
     @property
     def workspace_path(self) -> Path:
